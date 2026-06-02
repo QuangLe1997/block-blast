@@ -139,22 +139,25 @@ const S = {
 function emptyBoard(){ S.board=[]; for(let r=0;r<GRID;r++){ S.board.push(new Array(GRID).fill(0)); } }
 
 // ---------- layout ----------
-let DPR=1, cell=40, ox=0, oy=0, boardPx=320, trayY=0, trayCellsY=0, slotW=0, trayScale=0.46;
+let DPR=1, cell=40, ox=0, oy=0, boardPx=320, trayY=0, trayBandH=120, slotW=0, slotX0=0, trayScale=0.46;
+const MAXW=520;                                     // play-column max width → phone-like on desktop
 function resize(){
   DPR = Math.min(devicePixelRatio||1, 2);
   const w=innerWidth, h=innerHeight;
   C.style.width=w+'px'; C.style.height=h+'px'; C.width=Math.floor(w*DPR); C.height=Math.floor(h*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  const top = 78;                                   // space for HUD
-  const trayH = Math.min(h*0.20, 150);
-  const avail = h - top - trayH - 24;
-  boardPx = Math.min(w*0.94, avail);
+  const top = 80;                                   // space for HUD
+  const colW = Math.min(MAXW, w*0.94);
+  trayBandH = Math.min(colW*0.30, 140);
+  const avail = h - top - trayBandH - 30;
+  boardPx = Math.min(colW, avail);
   cell = boardPx/GRID; boardPx = cell*GRID;
   ox = (w - boardPx)/2;
   oy = top + Math.max(8, (avail - boardPx)/2);
-  trayY = oy + boardPx + 18;
-  slotW = (w*0.94)/3;
-  trayScale = cell*0.5;                              // tray piece cell size
+  trayY = oy + boardPx + 16;                        // tray sits right under the board
+  slotW = boardPx/3; slotX0 = ox;                   // 3 slots span the board width
+  // fit even a 5-cell piece inside a slot (and the tray height)
+  trayScale = Math.min(cell*0.5, slotW*0.82/5, trayBandH*0.78/5);
 }
 addEventListener('resize', resize);
 
@@ -301,6 +304,10 @@ function render(now){
       if(ok){ drawBlock(x,y,cell,COLORS[p.col],false); } else { ctx.fillStyle='rgba(255,80,100,.5)'; roundRect(x+2,y+2,cell-4,cell-4,cell*0.2); ctx.fill(); } }
     ctx.globalAlpha=1; } }
 
+  // tray slot zones (visible grab areas)
+  for(let i=0;i<3;i++){ const x=slotX0+slotW*i+4, y=trayY, w=slotW-8, h=trayBandH;
+    ctx.fillStyle='rgba(255,255,255,.035)'; roundRect(x,y,w,h,14); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1; ctx.stroke(); }
   // tray pieces (not the one being dragged)
   for(let i=0;i<3;i++){ const p=S.tray[i]; if(!p||p.used) continue; if(S.drag&&S.drag.idx===i) continue;
     const c=trayCenter(i); drawPieceAt(p, c.x, c.y, trayScale, false); }
@@ -326,7 +333,7 @@ function drawPieceAt(p, cx, cy, sz, glow){
   const w=p.d.w*sz, h=p.d.h*sz; const bx=cx-w/2, by=cy-h/2;
   for(const[dr,dc]of p.cells){ drawBlock(bx+dc*sz, by+dr*sz, sz, COLORS[p.col], glow); }
 }
-function trayCenter(i){ return { x: slotW*(i+0.5) + (innerWidth - slotW*3)/2, y: trayY + Math.min(innerHeight*0.10,75) }; }
+function trayCenter(i){ return { x: slotX0 + slotW*(i+0.5), y: trayY + trayBandH*0.5 }; }
 function ghostCell(){ const p=S.drag.piece; const px=S.drag.x, py=S.drag.y - S.drag.lift;
   const w=p.d.w*cell, h=p.d.h*cell; const bx=px - w/2, by=py - h/2;
   const r=Math.round((by-oy)/cell), c=Math.round((bx-ox)/cell);
@@ -335,10 +342,17 @@ function ghostCell(){ const p=S.drag.piece; const px=S.drag.x, py=S.drag.y - S.d
 
 // ---------- input ----------
 function pointerAt(e){ const r=C.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-function hitTray(pt){ for(let i=0;i<3;i++){ const p=S.tray[i]; if(!p||p.used) continue; const c=trayCenter(i);
-  const w=p.d.w*trayScale, h=p.d.h*trayScale; if(Math.abs(pt.x-c.x)<=Math.max(w,trayScale*1.6)/1.3+10 && Math.abs(pt.y-c.y)<=Math.max(h,trayScale*1.6)/1.3+18) return i; } return -1; }
+// generous grab: any touch inside a slot's band picks up that piece
+function hitTray(pt){
+  if(pt.y < trayY-16 || pt.y > trayY+trayBandH+16) return -1;
+  if(pt.x < slotX0-6 || pt.x > slotX0+slotW*3+6) return -1;
+  let i = Math.floor((pt.x - slotX0)/slotW); i=Math.max(0,Math.min(2,i));
+  return (S.tray[i] && !S.tray[i].used) ? i : -1;
+}
 C.addEventListener('pointerdown', e=>{ if(!S.started||S.over) return; e.preventDefault(); const pt=pointerAt(e); const i=hitTray(pt);
-  if(i>=0){ audio(); S.drag={idx:i, piece:S.tray[i], x:pt.x, y:pt.y, lift: cell*1.4, id:e.pointerId}; try{C.setPointerCapture(e.pointerId);}catch(_){} } });
+  if(i>=0){ audio(); const touch=e.pointerType==='touch';
+    S.drag={idx:i, piece:S.tray[i], x:pt.x, y:pt.y, lift: touch?cell*1.4:0, id:e.pointerId};
+    try{C.setPointerCapture(e.pointerId);}catch(_){} } });
 C.addEventListener('pointermove', e=>{ if(!S.drag||e.pointerId!==S.drag.id) return; e.preventDefault(); const pt=pointerAt(e); S.drag.x=pt.x; S.drag.y=pt.y; });
 function dropDrag(e){ if(!S.drag||e.pointerId!==S.drag.id) return; const g=ghostCell(); const p=S.drag.piece;
   if(g && canPlace(p,g.r,g.c)){ placePiece(p,g.r,g.c); } S.drag=null; }

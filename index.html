@@ -1,9 +1,21 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>BLOCK BLAST — Neon</title>
+<meta name="description" content="Block Blast — a calm neon 8×8 block puzzle. Drag blocks onto the grid, clear full rows and columns, chain combos. No gravity, pure planning." />
+<meta name="theme-color" content="#0a0e15" />
+<!-- Open Graph / social share -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="BLOCK BLAST — Neon" />
+<meta property="og:description" content="Drag blocks onto the 8×8 grid, clear lines, chain combos. A calm neon block puzzle." />
+<meta property="og:image" content="https://quangle1997.github.io/block-blast/og.png" />
+<meta property="og:url" content="https://quangle1997.github.io/block-blast/" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="BLOCK BLAST — Neon" />
+<meta name="twitter:description" content="Drag blocks onto the 8×8 grid, clear lines, chain combos." />
+<meta name="twitter:image" content="https://quangle1997.github.io/block-blast/og.png" />
 <style>
   :root{
     --mint:#54d6b2; --gold:#e7c06a; --rose:#e493ac; --cream:#f0ead8;
@@ -67,30 +79,30 @@
 <div id="app"><canvas id="game"></canvas></div>
 
 <div id="hud">
-  <div class="chip score"><div class="l">Điểm</div><div class="v" id="ui-score">0</div></div>
-  <div class="chip best"><div class="l">Kỷ lục</div><div class="v" id="ui-best">0</div></div>
+  <div class="chip score"><div class="l">Score</div><div class="v" id="ui-score">0</div></div>
+  <div class="chip best"><div class="l">Best</div><div class="v" id="ui-best">0</div></div>
 </div>
 <div id="muteBtn"></div>
 <div id="combo"></div>
 <div id="flash"></div>
 
 <div class="overlay" id="menu">
-  <div><div class="title">BLOCK<br>BLAST</div><div class="sub">Xếp khối · ăn hàng · combo</div></div>
+  <div><div class="title">BLOCK<br>BLAST</div><div class="sub">Place blocks · clear lines · combo</div></div>
   <div class="panel">
-    <div class="help">Kéo khối vào lưới 8×8.<br>Lấp đầy 1 hàng hoặc cột để <b>ăn điểm</b>.<br>Hết chỗ đặt là thua!</div>
-    <div style="margin-top:18px"><div class="btn btn-primary" id="startBtn">CHƠI ▶</div></div>
+    <div class="help">Drag blocks onto the 8×8 grid.<br>Fill a full row or column to <b>clear it</b>.<br>No room left = game over!</div>
+    <div style="margin-top:18px"><div class="btn btn-primary" id="startBtn">PLAY ▶</div></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="gameover">
-  <div class="title" style="font-size:clamp(34px,9vw,64px)">HẾT CHỖ</div>
-  <div id="newbestLine" class="newbest" style="display:none">★ KỶ LỤC MỚI ★</div>
+  <div class="title" style="font-size:clamp(34px,9vw,64px)">GAME OVER</div>
+  <div id="newbestLine" class="newbest" style="display:none">★ NEW BEST ★</div>
   <div class="panel">
     <div class="gostats">
-      <div><div class="l">Điểm</div><div class="v" id="go-score" style="color:var(--mint)">0</div></div>
-      <div><div class="l">Kỷ lục</div><div class="v" id="go-best" style="color:var(--gold)">0</div></div>
+      <div><div class="l">Score</div><div class="v" id="go-score" style="color:var(--mint)">0</div></div>
+      <div><div class="l">Best</div><div class="v" id="go-best" style="color:var(--gold)">0</div></div>
     </div>
-    <div class="btn btn-primary" id="retryBtn">CHƠI LẠI ↻</div>
+    <div class="btn btn-primary" id="retryBtn">PLAY AGAIN ↻</div>
   </div>
 </div>
 
@@ -251,7 +263,7 @@ function sfx(n){ switch(n){
 function updateHUD(){ document.getElementById('ui-score').textContent=S.score; document.getElementById('ui-best').textContent=S.best; }
 let comboT=null;
 function showCombo(lines, streak){ const el=document.getElementById('combo');
-  el.textContent = streak>=2 ? `COMBO ×${streak}` : `${lines} HÀNG!`;
+  el.textContent = streak>=2 ? `COMBO ×${streak}` : (lines>1 ? `${lines} LINES!` : `LINE!`);
   el.style.opacity=1; el.style.transform='translateX(-50%) scale(1.15)';
   clearTimeout(comboT); comboT=setTimeout(()=>{el.style.opacity=0;el.style.transform='translateX(-50%) scale(.6)';},850); }
 function flash(v){ const f=document.getElementById('flash'); f.style.transition='none'; f.style.opacity=v;

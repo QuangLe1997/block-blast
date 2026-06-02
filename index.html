@@ -327,10 +327,10 @@ function render(now){
 
   if(S.drag){ const p=S.drag.piece; const px=S.drag.x, py=S.drag.y - S.drag.lift;
     const w=p.d.w*cell, h=p.d.h*cell; const bx=px - w/2, by=py - h/2;
-    ctx.save();
-    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=cell*0.5; ctx.shadowOffsetY=cell*0.3;
-    for(const[dr,dc]of p.cells){ roundRect(bx+dc*cell+cell*0.08, by+dr*cell+cell*0.08, cell*0.84, cell*0.84, cell*0.22); ctx.fill(); }
-    ctx.restore();
+    // cheap flat lift shadow (offset, NO shadowBlur → smooth drag)
+    ctx.globalAlpha=0.26; ctx.fillStyle='#000';
+    for(const[dr,dc]of p.cells){ roundRect(bx+dc*cell+cell*0.10, by+dr*cell+cell*0.22, cell*0.82, cell*0.82, cell*0.22); ctx.fill(); }
+    ctx.globalAlpha=1;
     for(const[dr,dc]of p.cells){ drawBlock(bx+dc*cell, by+dr*cell, cell, p.col); } }
 
   if(parts.length){ ctx.globalCompositeOperation='lighter';                 // cheap additive particles (no shadowBlur)

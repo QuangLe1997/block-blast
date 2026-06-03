@@ -242,14 +242,13 @@ function placePiece(piece, r, c){
     fullR.forEach(i=>{ for(let j=0;j<GRID;j++) S.board[i][j]=0; });
     fullC.forEach(i=>{ for(let j=0;j<GRID;j++) S.board[j][i]=0; });
     S.streak++;
-    const combo = 1 + 0.25*(S.streak-1);
-    const pts = Math.round((10*lines + 10*lines*(lines-1)) * combo);
+    // SCORE gấp bội: simultaneous lines score as lines² (1→10, 2→40, 3→90, 4→160, 5→250…)
+    // then multiplied again by the across-turn streak. Many rows at once = huge points.
+    const streakMul = 1 + 0.5*(S.streak-1);
+    const pts = Math.round(10 * lines * lines * streakMul);
     S.score += pts;
-    burstCells(clearedCells);
-    S.shake = Math.min(1, 0.4 + lines*0.18);
-    if(lines>=2 || S.streak>=2) showCombo(lines, S.streak);
-    flash(0.18 + lines*0.06);
-    if(!S.muted) sfx(lines>=2?'bigclear':'clear');
+    bigClear(lines, clearedCells, fullR, fullC, pts);   // effects scale with `lines` (stronger + repeated)
+    if(lines>=2 || S.streak>=2) showCombo(lines, S.streak, pts);
   } else {
     S.streak=0;
   }
@@ -263,16 +262,41 @@ function placePiece(piece, r, c){
 
 // ---------- particles ----------
 const parts=[];
-function burstCells(cells){
+function burstCells(cells, power=1){
+  const n=4+power*5;                                   // more rows cleared → denser burst
   for(const[r,c,colIdx] of cells){
     const x=ox+c*cell+cell/2, y=oy+r*cell+cell/2;
     const col=COLORS[(colIdx-1)|0]||COLORS[0];
-    for(let k=0;k<5;k++){ const a=Math.random()*6.28, sp=1+Math.random()*4;
-      parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:0,max:0.4+Math.random()*0.4,col:col.a,sz:2+Math.random()*4}); }
+    for(let k=0;k<n;k++){ const a=Math.random()*6.28, sp=(1+Math.random()*4)*(0.8+power*0.28);
+      parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:0,max:0.4+Math.random()*0.5,col:col.a,sz:(2+Math.random()*4)*(1+power*0.14)}); }
   }
 }
 function updateParts(dt){ for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; p.life+=dt; if(p.life>=p.max){parts.splice(i,1);continue;}
   p.vy+=0.25; p.x+=p.vx; p.y+=p.vy; } }
+
+// ---------- shockwave rings (scale with lines) ----------
+const rings=[];
+function ringBurst(fullR, fullC, lines){
+  const cx=ox+boardPx/2, cy=oy+boardPx/2;
+  const add=(x,y,vr,w,rgb,max)=>rings.push({x,y,r:cell*0.4,vr,w,rgb,life:0,max});
+  fullR.forEach(i=>add(cx, oy+i*cell+cell/2, cell*11, 2+lines, '255,255,255', 0.45));
+  fullC.forEach(i=>add(ox+i*cell+cell/2, cy, cell*11, 2+lines, '255,255,255', 0.45));
+  if(lines>=2) add(cx, cy, cell*18, 4+lines*2, '231,192,106', 0.6);   // big gold shockwave
+  if(lines>=3) add(cx, cy, cell*26, 6+lines*2, '84,214,178', 0.72);   // mega teal shockwave
+}
+function updateRings(dt){ for(let i=rings.length-1;i>=0;i--){ const g=rings[i]; g.life+=dt; if(g.life>=g.max){rings.splice(i,1);continue;} g.r+=g.vr*dt; } }
+
+// orchestrate an escalating clear — the more lines, the stronger & the more it repeats
+function bigClear(lines, cells, fullR, fullC, pts){
+  burstCells(cells, lines);
+  ringBurst(fullR, fullC, lines);
+  S.shake = Math.min(2.0, 0.5 + lines*0.34);
+  const pulses = Math.min(5, lines);                                   // flash several times for big clears
+  for(let k=0;k<pulses;k++) setTimeout(()=>flash(0.2 + lines*0.05), k*90);
+  for(let k=1;k<lines;k++) setTimeout(()=>burstCells(cells, lines), k*70);   // extra particle waves
+  markDirty();
+  if(!S.muted) sfx(lines>=4?'megaclear':(lines>=2?'bigclear':'clear'));
+}
 
 // ---------- audio (web audio synth) ----------
 let actx=null,master=null;
@@ -285,6 +309,7 @@ function sfx(n){ switch(n){
   case 'place': note(330,.08,{type:'triangle',v:.12,to:440}); break;
   case 'clear': note(660,.12,{type:'triangle',v:.16,to:990}); note(990,.14,{type:'sine',v:.08,dl:.05}); break;
   case 'bigclear': [523,659,784,1047,1319].forEach((f,i)=>note(f,.18,{type:'triangle',v:.15,dl:i*.05})); break;
+  case 'megaclear': [523,659,784,1047,1319,1568,2093].forEach((f,i)=>note(f,.2,{type:'triangle',v:.16,dl:i*.045})); note(98,.55,{type:'sine',v:.2}); note(147,.5,{type:'sine',v:.14,dl:.04}); break;
   case 'over': note(300,.5,{type:'sawtooth',v:.2,to:80}); break;
   case 'start': [392,523,659,784].forEach((f,i)=>note(f,.25,{type:'triangle',v:.12,dl:i*.05})); break;
 }}
@@ -292,17 +317,21 @@ function sfx(n){ switch(n){
 // ---------- UI helpers ----------
 function updateHUD(){ document.getElementById('ui-score').textContent=S.score; document.getElementById('ui-best').textContent=S.best; }
 let comboT=null;
-function showCombo(lines, streak){ const el=document.getElementById('combo');
-  el.textContent = streak>=2 ? `COMBO ×${streak}` : (lines>1 ? `${lines} LINES!` : `LINE!`);
-  el.style.opacity=1; el.style.transform='translateX(-50%) scale(1.15)';
-  clearTimeout(comboT); comboT=setTimeout(()=>{el.style.opacity=0;el.style.transform='translateX(-50%) scale(.6)';},850); }
+function showCombo(lines, streak, pts){ const el=document.getElementById('combo');
+  let label = lines>1 ? `${lines} LINES ×${lines}` : `LINE`;
+  if(streak>=2) label += `  ·  COMBO ×${streak}`;
+  el.innerHTML = label + (pts?` <span style="color:var(--mint)">+${pts}</span>`:'');
+  const big = lines>=3;
+  el.style.fontSize = big ? '42px' : '30px';
+  el.style.opacity=1; el.style.transform=`translateX(-50%) scale(${big?1.3:1.15})`;
+  clearTimeout(comboT); comboT=setTimeout(()=>{el.style.opacity=0;el.style.transform='translateX(-50%) scale(.6)';}, big?1150:850); }
 function flash(v){ const f=document.getElementById('flash'); f.style.transition='none'; f.style.opacity=v;
   requestAnimationFrame(()=>{ f.style.transition='opacity .4s'; f.style.opacity=0; }); }
 function show(id){ document.getElementById(id).classList.remove('hidden'); }
 function hide(id){ document.getElementById(id).classList.add('hidden'); }
 
 // ---------- flow ----------
-function startGame(){ emptyBoard(); refillTray(); S.score=0; S.streak=0; S.over=false; S.started=true; S.drag=null;
+function startGame(){ emptyBoard(); refillTray(); parts.length=0; rings.length=0; S.score=0; S.streak=0; S.over=false; S.started=true; S.drag=null;
   hide('menu'); hide('gameover'); updateHUD(); markDirty(); audio(); if(!S.muted) sfx('start'); }
 function endGame(){ S.over=true; if(!S.muted) sfx('over'); S.shake=0.6;
   const nb=S.score>=S.best;
@@ -342,7 +371,7 @@ function drawPieceAt(p, cx, cy, sz){ const w=p.d.w*sz, h=p.d.h*sz, bx=cx-w/2, by
 function render(now){
   requestAnimationFrame(render);
   const dt=Math.min(0.05,(now-(render._l||now))/1000); render._l=now;
-  const animating = S.drag || parts.length>0 || S.shake>0;
+  const animating = S.drag || parts.length>0 || rings.length>0 || S.shake>0;
   if(!dirty && !animating) return;                        // idle → skip (no wasted CPU/GPU)
   dirty=false;
   ctx.clearRect(0,0,innerWidth,innerHeight);
@@ -375,11 +404,13 @@ function render(now){
     ctx.globalAlpha=1;
     for(const[dr,dc]of p.cells){ drawBlock(bx+dc*cell, by+dr*cell, cell, p.col); } }
 
-  if(parts.length){ ctx.globalCompositeOperation='lighter';                 // cheap additive particles (no shadowBlur)
+  if(rings.length || parts.length){ ctx.globalCompositeOperation='lighter';
+    for(const g of rings){ const a=Math.max(0,1-g.life/g.max); ctx.globalAlpha=a; ctx.strokeStyle='rgba('+g.rgb+',1)';
+      ctx.lineWidth=g.w*a+0.5; ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,6.28); ctx.stroke(); }
     for(const pt of parts){ const f=Math.max(0,1-pt.life/pt.max); ctx.globalAlpha=f; ctx.fillStyle=pt.col;
       ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.sz*f,0,6.28); ctx.fill(); }
     ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; }
-  updateParts(dt);
+  updateParts(dt); updateRings(dt);
 
   ctx.restore();
 }

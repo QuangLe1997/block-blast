@@ -32,19 +32,22 @@
   canvas{display:block;touch-action:none;}
 
   /* HUD */
-  #hud{position:fixed;top:max(12px,env(safe-area-inset-top));left:0;right:0;z-index:10;
-    display:flex;align-items:center;justify-content:center;gap:10px;pointer-events:none;padding:0 12px;}
-  .chip{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:7px 16px;text-align:center;
-    backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.35);min-width:74px;}
-  .chip .l{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-weight:600;}
-  .chip .v{font-size:20px;font-weight:800;line-height:1.15;}
+  /* top bar — aligned to the play column (same on mobile & desktop): score/best
+     centred, sound button pinned to the right edge of the board */
+  /* a neat, centred control cluster (score · best · sound) — tidy on every size */
+  #topbar{position:fixed;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:11;
+    display:flex;align-items:center;gap:10px;pointer-events:none;max-width:96vw;}
+  .hud-chips{display:flex;gap:10px;}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 18px;text-align:center;min-width:80px;
+    backdrop-filter:blur(12px);box-shadow:0 8px 22px rgba(40,62,92,.18),inset 0 1px 0 rgba(255,255,255,.7);}
+  .chip .l{font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;font-weight:700;}
+  .chip .v{font-size:21px;font-weight:800;line-height:1.15;}
   .chip.score .v{color:var(--mint);} .chip.best .v{color:var(--gold);}
-  #title{position:fixed;left:50%;transform:translateX(-50%);top:max(12px,env(safe-area-inset-top));z-index:9;
-    font-size:13px;font-weight:800;letter-spacing:4px;opacity:0;}
-  #muteBtn{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:11;
-    width:40px;height:40px;border-radius:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    background:var(--panel);border:1px solid var(--line);color:var(--ink);backdrop-filter:blur(10px);box-shadow:0 8px 22px rgba(0,0,0,.4);}
-  #muteBtn:active{background:rgba(231,192,106,.2);}
+  #muteBtn{pointer-events:auto;
+    width:44px;height:44px;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);color:var(--ink);backdrop-filter:blur(12px);
+    box-shadow:0 8px 22px rgba(40,62,92,.18),inset 0 1px 0 rgba(255,255,255,.7);transition:transform .12s ease,background .2s ease,color .2s ease;}
+  #muteBtn:hover{color:var(--mint);transform:translateY(-1px);} #muteBtn:active{transform:scale(.9);}
 
   /* combo popup */
   #combo{position:fixed;left:50%;top:20%;transform:translateX(-50%) scale(.6);z-index:12;pointer-events:none;
@@ -120,11 +123,13 @@
 <body>
 <div id="app"><canvas id="game"></canvas></div>
 
-<div id="hud">
-  <div class="chip score"><div class="l">Score</div><div class="v" id="ui-score">0</div></div>
-  <div class="chip best"><div class="l">Best</div><div class="v" id="ui-best">0</div></div>
+<div id="topbar">
+  <div class="hud-chips">
+    <div class="chip score"><div class="l">Score</div><div class="v" id="ui-score">0</div></div>
+    <div class="chip best"><div class="l">Best</div><div class="v" id="ui-best">0</div></div>
+  </div>
+  <div id="muteBtn" aria-label="Sound"></div>
 </div>
-<div id="muteBtn"></div>
 <div id="combo"></div>
 <div id="flash"></div>
 

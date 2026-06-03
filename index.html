@@ -344,8 +344,10 @@ function showCombo(lines, streak, pts){ const el=document.getElementById('combo'
   clearTimeout(comboT); comboT=setTimeout(()=>{el.style.opacity=0;el.style.transform='translateX(-50%) scale(.6)';}, big?1150:850); }
 function flash(v){ const f=document.getElementById('flash'); f.style.transition='none'; f.style.opacity=v;
   requestAnimationFrame(()=>{ f.style.transition='opacity .4s'; f.style.opacity=0; }); }
-function show(id){ document.getElementById(id).classList.remove('hidden'); }
-function hide(id){ document.getElementById(id).classList.add('hidden'); }
+// NOTE: #menu has `animation:menuIn ... both`, whose fill-mode pins opacity:1 and
+// overrides `.hidden{opacity:0}` — so we must also flip display to actually hide it.
+function show(id){ const el=document.getElementById(id); clearTimeout(el._ht); el.style.display=''; void el.offsetWidth; el.classList.remove('hidden'); }
+function hide(id){ const el=document.getElementById(id); el.classList.add('hidden'); clearTimeout(el._ht); el._ht=setTimeout(()=>{ el.style.display='none'; }, 360); }
 
 // ---------- flow ----------
 function startGame(){ emptyBoard(); refillTray(); parts.length=0; rings.length=0; S.score=0; S.streak=0; S.over=false; S.started=true; S.drag=null;
